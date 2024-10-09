@@ -1,0 +1,8 @@
+more-itertools==10.2.0
+numpy==1.26.4
+scipy==1.12.0
+shap==0.46.0
+lightgbm==4.5.0
+scikit-learn==1.5.2
+seaborn==0.13.2
+statsmodels
