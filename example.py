@@ -4,6 +4,8 @@ from ncvgbdt import run_analysis, make_figures
 
 df = pd.DataFrame(sm.datasets.get_rdataset("mtcars", "datasets", cache=True).data)
 
+base_dir = './test'
+
 run_analysis(df,
              Y_NAMES = ['mpg'],
              X_CON_NAMES = ['wt'],
@@ -15,10 +17,10 @@ run_analysis(df,
              N_SAMPLES_INNER_CV = 10,
              N_SAMPLES_RS = 10,
              MAX_SAMPLES_SHAP = 10,
-             SHAP_INTERACTIONS = True,
-             RESULTS_DIR = './test')
+             SHAP_INTERACTIONS = False,
+             RESULTS_DIR = base_dir)
 
-make_figures(RESULTS_DIR = './test',
-             FIGURES_DIR = './test')
+make_figures(RESULTS_DIR = base_dir,
+             FIGURES_DIR = base_dir)
 
 

@@ -1299,7 +1299,7 @@ def run_analysis(DATA_FRAME,
         raise ValueError('SHAP_INTERACTIONS can be True or False only.')
 
     # Create results directory path -------------------------------------------
-    path_to_results = os.path.join(RESULTS_DIR, ANALYSIS_NAME)
+    #path_to_results = os.path.join(RESULTS_DIR, ANALYSIS_NAME)
 
     # Create task variable ----------------------------------------------------
     task = {
@@ -1321,12 +1321,12 @@ def run_analysis(DATA_FRAME,
         'Y_NAMES': Y_NAMES,
         'SKIP_ROWS': SKIP_ROWS,
         'TEST_SET_IND': TEST_SET_IND,
-        'path_to_results': RESULTS_DIR,#path_to_results,
+        'path_to_results': RESULTS_DIR,
         'x_names': X_CON_NAMES+X_CAT_BIN_NAMES+X_CAT_MULT_NAMES,
         }
 
     # Create results directory ------------------------------------------------
-    create_dir(path_to_results)
+    create_dir(RESULTS_DIR)
 
     # Load data ---------------------------------------------------------------
     x_cols = task['x_names']
@@ -1341,7 +1341,7 @@ def run_analysis(DATA_FRAME,
     cols = task['x_names'] + task['Y_NAMES']
     if task['G_NAME']:
         cols.append(task['G_NAME'])       
-    d = DATA_FRAME[cols].dropna()
+    d = DATA_FRAME[cols]
     print('Data frame size:', len(d))
     
     x = d[task['x_names']]
@@ -1373,6 +1373,9 @@ def run_analysis(DATA_FRAME,
     else:
         task['te_categories'] = []
 
+
+
+
     # Modelling and testing ---------------------------------------------------
     # Iterate over prediction targets (Y_NAMES)
     for i_y, y_name in tqdm(enumerate(Y_NAMES)):
@@ -1382,14 +1385,20 @@ def run_analysis(DATA_FRAME,
         task['y_name'] = [y_name]
         # Get current target
         yi = y[y_name].to_frame()
+        # indexing full NOT-NA rows
+        idx = np.hstack((g.notna(), 
+                             yi.notna(),
+                             np.reshape(x.notna().all(axis=1), 
+                                        g.shape))).all(axis=1)
+        print(f"DV={y_name}, N={int(idx.sum())}")
         # Cross-validation
         if TYPE == 'CV':
             # Run cross-validation
-            cross_validation(task, g, x, yi)
+            cross_validation(task, g[idx], x[idx], yi[idx])
         # Switch Type of analysis
         elif TYPE == 'TT':
             # Run train-test split
-            train_test_split(task, g, x, yi)
+            train_test_split(task, g[idx], x[idx], yi[idx])
         # Other
         else:
             # Raise error
