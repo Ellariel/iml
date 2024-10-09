@@ -1414,6 +1414,14 @@ def run_analysis(DATA_FRAME,
 #################################################3
 ###############################################
 
+def format_p(p):
+    if p >= 0.999:
+        return 'p=1.000'
+    if p < 0.0001:
+        return 'p<0.0001'
+    if p < 0.001:
+        return 'p<0.001'
+    return 'p=' + f'{p:.3f}'
 
 def corrected_std(differences, n_tst_over_n_trn=0.25):
     '''
@@ -1482,10 +1490,13 @@ def corrected_ttest(differences, n_tst_over_n_trn=0.25):
     # Get corrected standard deviation
     std = corrected_std(differences, n_tst_over_n_trn)
     # Compute t statistics
-    t_stat = mean / std
-    # Compute p value for right-tailed t-test
-    p_val = t.sf(np.abs(t_stat), df=len(differences)-1)
-
+    if std >= 0.0 and std <= 0.0000001: # for technical purposes
+        t_stat = 0.0
+        p_val = 1.0
+    else:
+        # Compute p value for right-tailed t-test
+        t_stat = mean / std
+        p_val = t.sf(np.abs(t_stat), df=len(differences)-1)
     # Return t statistics and p value -----------------------------------------
     return t_stat, p_val
 
@@ -1647,11 +1658,11 @@ def print_regression_scatter(task, results, plots_path):
             fontsize=8)
     # Add MAE p val results to plot
     ax.text(.40, .02, ('MAE shuffle mean'+r'$\pm$'+'std:{:.2f}'+r'$\pm$' +
-            '{:.2f}|med:{:.2f}|p:{:.3f}').format(
+            '{:.2f}|med:{:.2f}|{}').format(
             np.mean(mae_sh),
             np.std(mae_sh),
             np.median(mae_sh),
-            pval_mae),
+            format_p(pval_mae)),
             transform=ax.transAxes,
             fontsize=8)
 
@@ -1672,11 +1683,11 @@ def print_regression_scatter(task, results, plots_path):
             fontsize=8)
     # Add R² p val results to plot
     ax.text(.02, .925, ('R² shuffle mean'+r'$\pm$'+'std:{:.3f}'+r'$\pm$' +
-            '{:.3f}|med:{:.3f}|p:{:.3f}').format(
+            '{:.3f}|med:{:.3f}|{}').format(
             np.mean(r2_sh),
             np.std(r2_sh),
             np.median(r2_sh),
-            pval_r2),
+            format_p(pval_r2)),
             transform=ax.transAxes,
             fontsize=8)
 
@@ -1900,14 +1911,14 @@ def print_classification_confusion(task, results, plots_path):
         '{:.2f}|{:.2f}'+'\n' +
         'Shuffle data accuracy mean'+r'$\pm$'+'std|median: {:.2f}'+r'$\pm$' +
         '{:.2f}|{:.2f}'+'\n' +
-        'p-value of orig. and shuffle: {:.3f}'+'\n').format(
+        'p-value of orig. and shuffle: {}'+'\n').format(
         np.mean(acc)*100,
         np.std(acc)*100,
         np.median(acc)*100,
         np.mean(acc_sh)*100,
         np.std(acc_sh)*100,
         np.median(acc_sh)*100,
-        pval_acc)
+        format_p(pval_acc))
     # Set title
     plt.title(title_str, fontsize=10)
 
@@ -2230,7 +2241,8 @@ def print_shap_effects(task, results, plots_path):
         for i, (c_pred, c_val) in enumerate(shap_effects_se_mean_sort.items()):
             # Make test string
             txt_str = (str(np.around(c_val, decimals=2))+'|' +
-                       'p '+str(pval_se[c_pred]))
+                       #'p '+str(pval_se[c_pred]))
+                       format_p(pval_se[c_pred]))
             # Add values to plot
             ax.text(c_val, i, txt_str, color='k',
                     va='center', fontsize=8)
