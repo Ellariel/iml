@@ -2,8 +2,14 @@
 Gradient Boosted Decision Tree (GBDT) implementation with Nested Cross-Validation (NCV)
 and SHapely Additive explanations and figures (SHAP)
 
-This code is a reused version with minor modifications by Danila Valko, d.v.valko@gmail.com
-of Dr. David Steyrl's codebase, david.steyrl@gmail.com
+This code is a reused version with minor modifications by Danila Valko (d.v.valko[at]gmail.com) 
+of Dr. David Steyrl's codebase (david.steyrl[at]gmail.com).
+See source code and description can be accessed at https://github.com/univiemops/iml 
+and one example here https://doi.org/10.31219/osf.io/um69t.
+The SHAP project can be accessed here https://github.com/shap/shap.
+
+You can cite this tool by mentioning one of Dr. Steryl's works, e.g. https://doi.org/10.1038/s41598-024-65088-z
+or https://doi.org/10.1371/journal.pone.0304285
 
 NCV involves repeated splits of the data into training and testing sets.
 In the outer CV loop a 10 times 5-folds split scheme grouped by participants was applied. 
@@ -1200,25 +1206,25 @@ def train_test_split(task, g, x, y):
     # Return None -------------------------------------------------------------
     return
 
-def run_analysis(DATA_FRAME,
-                 Y_NAMES,
-                 X_CON_NAMES = [],
-                 X_CAT_BIN_NAMES = [],
-                 X_CAT_MULT_NAMES = [],
-                 G_NAME = False,
-                 OBJECTIVE = 'regression',
-                 TYPE = 'CV',
-                 N_JOBS = -2,
-                 N_REP_OUTER_CV = 10,
-                 N_SAMPLES_INNER_CV = 10000,
-                 N_SAMPLES_RS = 100,
-                 MAX_SAMPLES_SHAP = 100,
-                 SHAP_INTERACTIONS = True,
-                 ANALYSIS_NAME = 'analysis',
-                 RESULTS_DIR = './',
-                 SKIP_ROWS = [],
-                 TEST_SET_IND = [],
-                 DEF_TEST_SIZE = 0.2,
+def run_analysis(data_frame,
+                 y_names,
+                 x_con_names = [],
+                 x_cat_bin_names = [],
+                 x_cat_mult_names = [],
+                 g_name = False,
+                 objective = 'regression',
+                 type = 'cv',
+                 n_jobs = -2,
+                 n_rep_outer_cv = 10,
+                 n_samples_inner_cv = 10000,
+                 n_samples_rs = 100,
+                 max_samples_shap = 100,
+                 shap_interactions = True,
+                 analysis_name = 'analysis',
+                 results_dir = './',
+                 skip_rows = [],
+                 test_set_ind = [],
+                 def_test_size = 0.2,
                  ):
     '''
     Main function of the machine-learning based data analysis.
@@ -1282,66 +1288,66 @@ def run_analysis(DATA_FRAME,
     TEST_SET_IND = list(randint.rvs(0, 4630, size=926))
     '''
 
-    if not len(TEST_SET_IND):
-        TEST_SET_IND = list(randint.rvs(0, len(DATA_FRAME) - 1, size=math.floor(len(DATA_FRAME) * DEF_TEST_SIZE)))     
+    if not len(test_set_ind):
+        test_set_ind = list(randint.rvs(0, len(data_frame) - 1, size=math.floor(len(data_frame) * def_test_size)))     
         
     # If shap with interactions
-    if SHAP_INTERACTIONS:
+    if shap_interactions:
         # Update string
-        ANALYSIS_NAME = ANALYSIS_NAME+'_'+TYPE+'_inter'
+        analysis_name = analysis_name+'_'+type+'_inter'
     # If shap without interactions
-    elif not SHAP_INTERACTIONS:
+    elif not shap_interactions:
         # Update string
-        ANALYSIS_NAME = ANALYSIS_NAME+'_'+TYPE
+        analysis_name = analysis_name+'_'+type
     # Other
     else:
         # Raise error
-        raise ValueError('SHAP_INTERACTIONS can be True or False only.')
+        raise ValueError('shap_interactions can be True or False only.')
 
     # Create results directory path -------------------------------------------
     #path_to_results = os.path.join(RESULTS_DIR, ANALYSIS_NAME)
 
     # Create task variable ----------------------------------------------------
     task = {
-        'TYPE': TYPE,
-        'N_JOBS': N_JOBS,
-        'N_REP_OUTER_CV': N_REP_OUTER_CV,
-        'N_SAMPLES_INNER_CV': N_SAMPLES_INNER_CV,
-        'N_SAMPLES_RS': N_SAMPLES_RS,
-        'MAX_SAMPLES_SHAP': MAX_SAMPLES_SHAP,
-        'SHAP_INTERACTIONS': SHAP_INTERACTIONS,
-        'ANALYSIS_NAME': ANALYSIS_NAME,
+        'TYPE': type,
+        'N_JOBS': n_jobs,
+        'N_REP_OUTER_CV': n_rep_outer_cv,
+        'N_SAMPLES_INNER_CV': n_samples_inner_cv,
+        'N_SAMPLES_RS': n_samples_rs,
+        'MAX_SAMPLES_SHAP': max_samples_shap,
+        'SHAP_INTERACTIONS': shap_interactions,
+        'ANALYSIS_NAME': analysis_name,
         #'PATH_TO_DATA': PATH_TO_DATA,
         #'SHEET_NAME': SHEET_NAME,
-        'OBJECTIVE': OBJECTIVE,
-        'G_NAME': G_NAME,
-        'X_CON_NAMES': X_CON_NAMES,
-        'X_CAT_BIN_NAMES': X_CAT_BIN_NAMES,
-        'X_CAT_MULT_NAMES': X_CAT_MULT_NAMES,
-        'Y_NAMES': Y_NAMES,
-        'SKIP_ROWS': SKIP_ROWS,
-        'TEST_SET_IND': TEST_SET_IND,
-        'path_to_results': RESULTS_DIR,
-        'x_names': X_CON_NAMES+X_CAT_BIN_NAMES+X_CAT_MULT_NAMES,
+        'OBJECTIVE': objective,
+        'G_NAME': g_name,
+        'X_CON_NAMES': x_con_names,
+        'X_CAT_BIN_NAMES': x_cat_bin_names,
+        'X_CAT_MULT_NAMES': x_cat_mult_names,
+        'Y_NAMES': y_names,
+        'SKIP_ROWS': skip_rows,
+        'TEST_SET_IND': test_set_ind,
+        'path_to_results': results_dir,
+        'x_names': x_con_names + x_cat_bin_names + x_cat_mult_names,
         }
 
     # Create results directory ------------------------------------------------
-    create_dir(RESULTS_DIR)
+    create_dir(results_dir)
 
     # Load data ---------------------------------------------------------------
     x_cols = task['x_names']
     if not len(task['x_names']):
         if task['G_NAME']:
-            x_cols = list(set(DATA_FRAME.columns) - set(task['Y_NAMES'] + [task['G_NAME']]))
+            x_cols = list(set(data_frame.columns) - set(task['Y_NAMES'] + [task['G_NAME']]))
         else:
-            x_cols = list(set(DATA_FRAME.columns) - set(task['Y_NAMES']))
+            x_cols = list(set(data_frame.columns) - set(task['Y_NAMES']))
         task['X_CON_NAMES'] = x_cols
     task['x_names'] = x_cols
     
     cols = task['x_names'] + task['Y_NAMES']
     if task['G_NAME']:
         cols.append(task['G_NAME'])       
-    d = DATA_FRAME[cols]
+    d = data_frame[cols]
     print('Data frame size:', len(d))
     
     x = d[task['x_names']]
@@ -1378,7 +1384,7 @@ def run_analysis(DATA_FRAME,
 
     # Modelling and testing ---------------------------------------------------
     # Iterate over prediction targets (Y_NAMES)
-    for i_y, y_name in tqdm(enumerate(Y_NAMES)):
+    for i_y, y_name in tqdm(enumerate(y_names)):
         # Add prediction target index to task
         task['i_y'] = i_y
         # Add prediction target name to task
@@ -1390,19 +1396,19 @@ def run_analysis(DATA_FRAME,
                              yi.notna(),
                              np.reshape(x.notna().all(axis=1), 
                                         g.shape))).all(axis=1)
-        print(f"DV={y_name}, N={int(idx.sum())}")
+        print(f"\nDV={y_name}, N={int(idx.sum())}")
         # Cross-validation
-        if TYPE == 'CV':
+        if type == 'CV':
             # Run cross-validation
             cross_validation(task, g[idx], x[idx], yi[idx])
         # Switch Type of analysis
-        elif TYPE == 'TT':
+        elif type == 'TT':
             # Run train-test split
             train_test_split(task, g[idx], x[idx], yi[idx])
         # Other
         else:
             # Raise error
-            raise ValueError('Test type not found.')
+            raise ValueError('Type not found.')
 
     # Return None -------------------------------------------------------------
     return
@@ -3176,12 +3182,12 @@ def print_shap_interaction_values(task, results, plots_path):
     # Return None -------------------------------------------------------------
     return fig
 
-def make_figures(RESULTS_DIR = './',
-                 FIGURES_DIR = './',
-                 PPD = True,
-                 PSI = True,
-                 MCC = False,
-                 AS_SVG = True):
+def make_figures(results_dir = './',
+                 figures_dir = './',
+                 print_param_distrib = False,
+                 print_shap_effects_inter = True,
+                 add_multiple_comparison_correction = False,
+                 as_svg = True):
     '''
     Main function of plot results of machine-learning based data analysis.
     ###########################################################################
@@ -3202,10 +3208,10 @@ def make_figures(RESULTS_DIR = './',
     
     # Loop over result paths --------------------------------------------------
         # Load task paths
-    task_paths = [f.name for f in os.scandir(RESULTS_DIR)
+    task_paths = [f.name for f in os.scandir(results_dir)
                       if f.name.endswith('_task.pickle')]
         # Load result paths
-    results_paths = [f.name for f in os.scandir(RESULTS_DIR)
+    results_paths = [f.name for f in os.scandir(results_dir)
                          if f.name.endswith('_results.pickle')]
 
         # Loop over tasks -----------------------------------------------------
@@ -3213,20 +3219,20 @@ def make_figures(RESULTS_DIR = './',
 
             # Load task and results, create plots directory -------------------
             # Load task description
-            task = lfp(os.path.join(RESULTS_DIR, task_path))
+            task = lfp(os.path.join(results_dir, task_path))
             # Add multiple comparison correction to task
-            task['MCC'] = MCC
+            task['MCC'] = add_multiple_comparison_correction
             # Add as svg to task
-            task['AS_SVG'] = AS_SVG
+            task['AS_SVG'] = as_svg
             # Load results
-            results = lfp(os.path.join(RESULTS_DIR, results_paths[i_task]))
+            results = lfp(os.path.join(results_dir, results_paths[i_task]))
             # Plots path
-            plots_path = os.path.join(FIGURES_DIR, task['y_name'][0]+'_plots')
+            plots_path = os.path.join(figures_dir, task['y_name'][0]+'_plots')
             # Create plots dir
             create_dir(plots_path)
 
             # Plot parameter distributions ------------------------------------
-            if PPD:
+            if print_param_distrib:
                 print_parameter_distributions(task, results, plots_path)
 
             # Plot model fit --------------------------------------------------
@@ -3261,11 +3267,11 @@ def make_figures(RESULTS_DIR = './',
             print_shap_dependences(task, results, plots_path)
 
             # Plot SHAP effects interactions ----------------------------------
-            if task['SHAP_INTERACTIONS'] and PSI:
+            if task['SHAP_INTERACTIONS'] and print_shap_effects_inter:
                 print_shap_effects_interactions(task, results, plots_path)
 
             # Plot SHAP interaction values ------------------------------------
-            if task['SHAP_INTERACTIONS'] and PSI:
+            if task['SHAP_INTERACTIONS'] and print_shap_effects_inter:
                 print_shap_interaction_values(task, results, plots_path)
 
     # Return None -------------------------------------------------------------
