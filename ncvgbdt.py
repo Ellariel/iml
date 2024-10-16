@@ -1433,6 +1433,16 @@ def format_p(p, add_p=True, keep_space=False):
     p = p if keep_space else p.replace(' ', '')
     return p
 
+def format_r(r):
+    if not np.isfinite(r):
+        r = 'inf'
+    elif abs(r) >= 0.999:
+        r = '1.00'
+    elif abs(r) < 0.005:
+        r = '0.00'
+    else:
+        r = f"{'-' if r < 0.0 else ''}"+f"{abs(r):.2f}"[1:]
+    return r
 
 def get_stars(p, p001='***', p01='** ', p05='*  ', p10='⁺  ', p_='    '):
     if p < 0.001:
@@ -3199,10 +3209,9 @@ def print_shap_interaction_values(task, results, plots_path):
     # Return None -------------------------------------------------------------
     return fig
 
-def _print_shap_values(task, results, plots_path='./', exclude=[], rename_dict={}, dpi=600, stars=False):
+def _print_shap_values(task, results, plots_path='./', title=None, exclude=[], rename_dict={}, dpi=600, stars=False):
     '''
     Plot SHAP values.
-
     Parameters
     ----------
     task : dictionary
@@ -3211,12 +3220,10 @@ def _print_shap_values(task, results, plots_path='./', exclude=[], rename_dict={
         Dictionary holding the results of the ml analyses.
     plots_path : string
         Path to the plots.
-
     Returns
     -------
     None.
     '''
-
     # Classes -----------------------------------------------------------------
     # If no interactions and binary or multiclass
     if not task['SHAP_INTERACTIONS'] and (
@@ -3227,13 +3234,11 @@ def _print_shap_values(task, results, plots_path='./', exclude=[], rename_dict={
     # Other cases
     else:
         n_classes = 1
-
     # Plot shap values --------------------------------------------------------
     # Loop over classes
     for c_class in range(n_classes):
         # Get current shap values
         shap_values, base = get_shap_values(task, results['explainations'], c_class)
-
         # Get current shap effects
         shap_effects_df, base = get_shap_effects(task,
                                                  results['explainations'],
@@ -3242,14 +3247,12 @@ def _print_shap_values(task, results, plots_path='./', exclude=[], rename_dict={
         shap_effects_sh_df, _ = get_shap_effects(task,
                                                  results['explainations_sh'],
                                                  c_class)
-
         # Process SHAP effects-------------------------------------------------
         # Mean shap values
         shap_effects_se_mean = shap_effects_df.mean(axis=0)
         # Sort from highto low
         shap_effects_se_mean_sort = shap_effects_se_mean.sort_values(
             ascending=True)
-
         # If interactions
         if task['SHAP_INTERACTIONS']:
             # Sum over interaction to get full effects
@@ -3261,12 +3264,10 @@ def _print_shap_values(task, results, plots_path='./', exclude=[], rename_dict={
         # Other
         else:
             shap_explainations = shap_values
-
         # Additional info -----------------------------------------------------
         # x names lengths
         x_names_max_len = max([len(i) for i in task['x_names']])
         # x names count
-
         # Compute SHAP effect p values ----------------------------------------
         # Init p value list
         pval = {}
@@ -3277,7 +3278,6 @@ def _print_shap_values(task, results, plots_path='./', exclude=[], rename_dict={
                 pred_data.to_numpy()-shap_effects_sh_df[pred_name].to_numpy())
             # Add to pval list
             pval[pred_name] = np.around(c_pval, decimals=3)
-
         excl = 0
         for e in exclude:
           idx = shap_explainations.feature_names.index(e)
@@ -3286,8 +3286,7 @@ def _print_shap_values(task, results, plots_path='./', exclude=[], rename_dict={
             shap_explainations.values = np.delete(shap_explainations.values, idx, axis=1)
             shap_explainations.data = np.delete(shap_explainations.data, idx, axis=1)
             excl += 1
-            print(f"{e} has been removed.")
-
+            print(f"'{e}' has been removed.")
         # Make pval series
         x_names_count = len(task['x_names'])
         pval_se = pd.Series(data=pval, index=task['x_names'])
@@ -3297,14 +3296,12 @@ def _print_shap_values(task, results, plots_path='./', exclude=[], rename_dict={
             pval_se = pval_se*(x_names_count - excl)
             # Set p values > 1 to 1
             pval_se = pval_se.clip(upper=1)
-
         extra_x_names = {}
         extra_x_names_max_len = []
         for i, (c_pred, c_val) in enumerate(shap_effects_se_mean_sort.items()):
             # Make test string
              txt_str = c_pred+'     '+str(np.around(c_val, decimals=2))+f"{', '+format_p(pval_se[c_pred]) if not stars else get_stars(pval_se[c_pred])}"
              extra_x_names[c_pred] = txt_str
-
         for i, f in enumerate(shap_explainations.feature_names):
             shap_explainations.feature_names[i] = extra_x_names[f].replace(f, rename_dict[f]) if f in rename_dict else extra_x_names[f]
             extra_x_names_max_len.append(len(shap_explainations.feature_names[i].split('\n')[0]))
@@ -3345,6 +3342,20 @@ def _print_shap_values(task, results, plots_path='./', exclude=[], rename_dict={
             ')'
             )
         # Add class if no interactions and binary or multiclass
+        
+        if not (task['OBJECTIVE'] == 'binary' or
+                        task['OBJECTIVE'] == 'multiclass'):
+            # Extract R²
+            r2 = [i['r2'] for i in r['scores']]
+              # Extract R² shuffle
+            r2_sh = [i['r2'] for i in r['scores_sh']]
+              # Calculate p-value between R² and shuffle R²
+            _, pval_r2 = corrected_ttest(np.array(r2)-np.array(r2_sh))
+                # Add R² results to plot
+            metrics_str = f'R²pred={format_r(np.mean(r2))}'+r'±'+f'{format_p(np.std(r2), add_p=False)}, {format_p(pval_r2, keep_space=False)}'
+        else:
+            metrics_str = 'Acc.='
+
         if not task['SHAP_INTERACTIONS'] and (
                 task['OBJECTIVE'] == 'binary' or
                 task['OBJECTIVE'] == 'multiclass'):
@@ -3352,14 +3363,13 @@ def _print_shap_values(task, results, plots_path='./', exclude=[], rename_dict={
             title_str = title_str+' class: '+str(c_class)
         # Add title
         print(title_str)
-        #plt.title(title_str, fontsize=10)
+        print(metrics_str)
         # Get colorbar
         cb_ax = fig.axes[1]
         # Modifying color bar tick size
         cb_ax.tick_params(labelsize=10)
         # Modifying color bar fontsize
         cb_ax.set_ylabel('Predictor value', fontsize=10)
-
         # Add SHAP effect values and p values as text -------------------------
         # Loop over values
         x_left, x_right = plt.xlim()
@@ -3372,6 +3382,15 @@ def _print_shap_values(task, results, plots_path='./', exclude=[], rename_dict={
         # Get x limits
         ax.text(x_left-extra_x_names_max_len*.02 + .05, y_top, '                        Average impact\nPredictor     (mean|SHAP values|)', color='k', va='center', fontsize=10)
         plt.xlim(x_left, x_right + x_right*.1)
+
+        if title!=None:
+          plt.title(title, fontsize=10)
+        else:
+          f = task['y_name'][0]
+          f = f.replace(f, rename_dict[f]) if f in rename_dict else f
+          f += f'\n{metrics_str}'
+          ax.text(0,y_top + len(f.split('\n'))*.4,f, fontsize=10.6, 
+                  horizontalalignment='center', verticalalignment='top')
 
         # Save plot -----------------------------------------------------------
         # Make save path
@@ -3394,7 +3413,6 @@ def _print_shap_values(task, results, plots_path='./', exclude=[], rename_dict={
         # Show figure
         # plt.show()
         plt.close()
-
     # Return None -------------------------------------------------------------
     return fig
 
