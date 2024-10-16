@@ -3346,9 +3346,9 @@ def _print_shap_values(task, results, plots_path='./', title=None, exclude=[], r
         if not (task['OBJECTIVE'] == 'binary' or
                         task['OBJECTIVE'] == 'multiclass'):
             # Extract R²
-            r2 = [i['r2'] for i in r['scores']]
+            r2 = [i['r2'] for i in results['scores']]
               # Extract R² shuffle
-            r2_sh = [i['r2'] for i in r['scores_sh']]
+            r2_sh = [i['r2'] for i in results['scores_sh']]
               # Calculate p-value between R² and shuffle R²
             _, pval_r2 = corrected_ttest(np.array(r2)-np.array(r2_sh))
                 # Add R² results to plot
