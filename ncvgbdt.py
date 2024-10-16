@@ -1420,14 +1420,31 @@ def run_analysis(data_frame,
 #################################################3
 ###############################################
 
-def format_p(p):
-    if p >= 0.999:
-        return 'p=1.000'
-    if p < 0.0001:
-        return 'p<0.0001'
+def format_p(p, add_p=True, keep_space=False):
+    if not np.isfinite(p) or p < 0.0:
+        p = 'p = inf'
+    elif p >= 0.999:
+        p = 'p = 1.000'
+    elif p < 0.001:
+        p = 'p < .001'
+    else:
+        p = 'p = ' + f"{p:.3f}"[1:]
+    p = p if add_p else p.replace('p ', '').replace('=', '')
+    p = p if keep_space else p.replace(' ', '')
+    return p
+
+
+def get_stars(p, p001='***', p01='** ', p05='*  ', p10='⁺  ', p_='    '):
     if p < 0.001:
-        return 'p<0.001'
-    return 'p=' + f'{p:.3f}'
+        return p001
+    if p < 0.010:
+        return p01
+    if p < 0.050:
+        return p05
+    if p < 0.100:
+        return p10
+    return p_
+
 
 def corrected_std(differences, n_tst_over_n_trn=0.25):
     '''
@@ -3182,12 +3199,212 @@ def print_shap_interaction_values(task, results, plots_path):
     # Return None -------------------------------------------------------------
     return fig
 
+def _print_shap_values(task, results, plots_path='./', exclude=[], rename_dict={}, dpi=600, stars=False):
+    '''
+    Plot SHAP values.
+
+    Parameters
+    ----------
+    task : dictionary
+        Dictionary holding the task describtion variables.
+    results : dictionary
+        Dictionary holding the results of the ml analyses.
+    plots_path : string
+        Path to the plots.
+
+    Returns
+    -------
+    None.
+    '''
+
+    # Classes -----------------------------------------------------------------
+    # If no interactions and binary or multiclass
+    if not task['SHAP_INTERACTIONS'] and (
+            task['OBJECTIVE'] == 'binary' or
+            task['OBJECTIVE'] == 'multiclass'):
+        # Get number of classes
+        n_classes = results['explainations'][0].shape[2]
+    # Other cases
+    else:
+        n_classes = 1
+
+    # Plot shap values --------------------------------------------------------
+    # Loop over classes
+    for c_class in range(n_classes):
+        # Get current shap values
+        shap_values, base = get_shap_values(task, results['explainations'], c_class)
+
+        # Get current shap effects
+        shap_effects_df, base = get_shap_effects(task,
+                                                 results['explainations'],
+                                                 c_class)
+        # Get current shuffle shap effects
+        shap_effects_sh_df, _ = get_shap_effects(task,
+                                                 results['explainations_sh'],
+                                                 c_class)
+
+        # Process SHAP effects-------------------------------------------------
+        # Mean shap values
+        shap_effects_se_mean = shap_effects_df.mean(axis=0)
+        # Sort from highto low
+        shap_effects_se_mean_sort = shap_effects_se_mean.sort_values(
+            ascending=True)
+
+        # If interactions
+        if task['SHAP_INTERACTIONS']:
+            # Sum over interaction to get full effects
+            shap_explainations = shap_values.sum(axis=2)
+            # Add base values
+            shap_explainations.base_values = shap_values.base_values
+            # Add data
+            shap_explainations.data = shap_values.data
+        # Other
+        else:
+            shap_explainations = shap_values
+
+        # Additional info -----------------------------------------------------
+        # x names lengths
+        x_names_max_len = max([len(i) for i in task['x_names']])
+        # x names count
+
+        # Compute SHAP effect p values ----------------------------------------
+        # Init p value list
+        pval = {}
+        # Iterate over predictors
+        for pred_name, pred_data in shap_effects_df.items():
+            # Get current p value
+            _, c_pval = corrected_ttest(
+                pred_data.to_numpy()-shap_effects_sh_df[pred_name].to_numpy())
+            # Add to pval list
+            pval[pred_name] = np.around(c_pval, decimals=3)
+
+        excl = 0
+        for e in exclude:
+          idx = shap_explainations.feature_names.index(e)
+          if idx:
+            shap_explainations.feature_names.remove(e)
+            shap_explainations.values = np.delete(shap_explainations.values, idx, axis=1)
+            shap_explainations.data = np.delete(shap_explainations.data, idx, axis=1)
+            excl += 1
+            print(f"{e} has been removed.")
+
+        # Make pval series
+        x_names_count = len(task['x_names'])
+        pval_se = pd.Series(data=pval, index=task['x_names'])
+        # Multiple comparison correction
+        if task['MCC']:
+            # Multiply p value by number of tests
+            pval_se = pval_se*(x_names_count - excl)
+            # Set p values > 1 to 1
+            pval_se = pval_se.clip(upper=1)
+
+        extra_x_names = {}
+        extra_x_names_max_len = []
+        for i, (c_pred, c_val) in enumerate(shap_effects_se_mean_sort.items()):
+            # Make test string
+             txt_str = c_pred+'     '+str(np.around(c_val, decimals=2))+f"{', '+format_p(pval_se[c_pred]) if not stars else get_stars(pval_se[c_pred])}"
+             extra_x_names[c_pred] = txt_str
+
+        for i, f in enumerate(shap_explainations.feature_names):
+            shap_explainations.feature_names[i] = extra_x_names[f].replace(f, rename_dict[f]) if f in rename_dict else extra_x_names[f]
+            extra_x_names_max_len.append(len(shap_explainations.feature_names[i].split('\n')[0]))
+        extra_x_names_max_len = max(extra_x_names_max_len)
+        
+        # Plot SHAP values beeswarm -------------------------------------------
+        beeswarm(shap_explainations,
+                 max_display=len(task['x_names']),
+                 order=Explanation.abs.mean(0),
+                 clustering=None,
+                 cluster_threshold=0.5,
+                 color=None,
+                 axis_color='#333333',
+                 alpha=.66,
+                 show=False,
+                 log_scale=False,
+                 color_bar=True,
+                 plot_size=(x_names_max_len*.05+7, x_names_count*.4+1),
+                 color_bar_label='Predictor value')
+        # Get the current figure and axes objects.
+        fig, ax = plt.gcf(), plt.gca()
+        # Set x label size
+        plt.xlabel('Impact on model output\n(SHAP value of predictor)', fontsize=10)
+        # Set x ticks size
+        plt.xticks(fontsize=10)
+        # Set y label size
+        plt.ylabel(ax.get_ylabel(), fontsize=10)
+        # Set y ticks size
+        plt.yticks(fontsize=10)
+        # Make title string
+        title_str = (
+            task['ANALYSIS_NAME']+' ' +
+            'SHAP values for'+' ' +
+            task['y_name'][0]+'\n' +
+            'mean(|SHAP values|) = mean absolute deviation from expected' +
+            ' value (' +
+            str(np.round(base, decimals=2)) +
+            ')'
+            )
+        # Add class if no interactions and binary or multiclass
+        if not task['SHAP_INTERACTIONS'] and (
+                task['OBJECTIVE'] == 'binary' or
+                task['OBJECTIVE'] == 'multiclass'):
+            # Make title string
+            title_str = title_str+' class: '+str(c_class)
+        # Add title
+        print(title_str)
+        #plt.title(title_str, fontsize=10)
+        # Get colorbar
+        cb_ax = fig.axes[1]
+        # Modifying color bar tick size
+        cb_ax.tick_params(labelsize=10)
+        # Modifying color bar fontsize
+        cb_ax.set_ylabel('Predictor value', fontsize=10)
+
+        # Add SHAP effect values and p values as text -------------------------
+        # Loop over values
+        x_left, x_right = plt.xlim()
+        y_bottom, y_top = plt.ylim()
+        #for i, (c_pred, c_val) in enumerate(shap_effects_se_mean_sort.items()):
+            # Make test string
+        #    txt_str = (str(np.around(c_val, decimals=2))+', '+format_p(pval_se[c_pred])) #get_stars(pval_se[c_pred])
+            # Add values to plot
+        #    ax.text(x_left-.15, i-.05, txt_str, color='k', va='center', fontsize=9) #c_val
+        # Get x limits
+        ax.text(x_left-extra_x_names_max_len*.02 + .05, y_top, '                        Average impact\nPredictor     (mean|SHAP values|)', color='k', va='center', fontsize=10)
+        plt.xlim(x_left, x_right + x_right*.1)
+
+        # Save plot -----------------------------------------------------------
+        # Make save path
+        save_path = (plots_path+'/'+task['ANALYSIS_NAME']+'_' +
+                     '3'+'_' +
+                     task['y_name'][0]+'_' +
+                     'shap_values')[:130]
+        # Add class if no interactions and binary or multiclass
+        if not task['SHAP_INTERACTIONS'] and (
+                task['OBJECTIVE'] == 'binary' or
+                task['OBJECTIVE'] == 'multiclass'):
+            # Make title string
+            save_path = save_path+'_class_'+str(c_class)
+        # Save figure
+        plt.savefig(save_path+'.png', dpi=dpi, bbox_inches='tight')
+        # Check if save as svg is enabled
+        if task['AS_SVG']:
+            # Save figure
+            plt.savefig(save_path+'.svg', dpi=dpi,  bbox_inches='tight')
+        # Show figure
+        # plt.show()
+        plt.close()
+
+    # Return None -------------------------------------------------------------
+    return fig
+
 def make_figures(results_dir = './',
                  figures_dir = './',
                  print_param_distrib = False,
                  print_shap_effects_inter = True,
                  add_multiple_comparison_correction = False,
-                 as_svg = True):
+                 def_shap_values = True,
+                 as_svg = False):
     '''
     Main function of plot results of machine-learning based data analysis.
     ###########################################################################
@@ -3261,8 +3478,11 @@ def make_figures(results_dir = './',
             print_shap_effects_distribution(task, results, plots_path)
 
             # Plot SHAP values ------------------------------------------------
-            print_shap_values(task, results, plots_path)
-
+            if def_shap_values:
+                print_shap_values(task, results, plots_path)
+            else:
+                _print_shap_values(task, results, plots_path)
+        
             # Plot SHAP dependencies ------------------------------------------
             print_shap_dependences(task, results, plots_path)
 
