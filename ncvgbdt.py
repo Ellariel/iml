@@ -3300,7 +3300,7 @@ def _print_shap_values(task, results, plots_path='./', title=None, exclude=[], r
         extra_x_names_max_len = []
         for i, (c_pred, c_val) in enumerate(shap_effects_se_mean_sort.items()):
             # Make test string
-             txt_str = c_pred+'     '+str(np.around(c_val, decimals=2))+f"{', '+format_p(pval_se[c_pred]) if not stars else get_stars(pval_se[c_pred])}"
+             txt_str = c_pred+'  '+f"{c_val:6<.2f}"+f"{', '+format_p(pval_se[c_pred]) if not stars else get_stars(pval_se[c_pred])}"
              extra_x_names[c_pred] = txt_str
         for i, f in enumerate(shap_explainations.feature_names):
             shap_explainations.feature_names[i] = extra_x_names[f].replace(f, rename_dict[f]) if f in rename_dict else extra_x_names[f]
@@ -3380,8 +3380,9 @@ def _print_shap_values(task, results, plots_path='./', title=None, exclude=[], r
             # Add values to plot
         #    ax.text(x_left-.15, i-.05, txt_str, color='k', va='center', fontsize=9) #c_val
         # Get x limits
-        ax.text(x_left-extra_x_names_max_len*.02 + .05, y_top, '                        Average impact\nPredictor     (mean|SHAP values|)', color='k', va='center', fontsize=10)
-        plt.xlim(x_left, x_right + x_right*.1)
+        s = 'Average impact   \nPredictor     (mean|SHAP values|)'
+        ax.text(x_left  - x_left*0.05, y_top, s, color='k', va='center', ha='right', fontsize=10) # - (max([len(i) for i in s.split('\n')])*.02 / 2)
+        plt.xlim(x_left - x_left*0.05, x_right + x_right*.1)
 
         if title!=None:
           plt.title(title, fontsize=10)
@@ -3389,7 +3390,7 @@ def _print_shap_values(task, results, plots_path='./', title=None, exclude=[], r
           f = task['y_name'][0]
           f = f.replace(f, rename_dict[f]) if f in rename_dict else f
           f += f'\n{metrics_str}'
-          ax.text(0,y_top + len(f.split('\n'))*.4,f, fontsize=10.6, 
+          ax.text((x_left + x_right) / 2, y_top + len(f.split('\n'))*.4, f, fontsize=10.6, 
                   horizontalalignment='center', verticalalignment='top')
 
         # Save plot -----------------------------------------------------------
