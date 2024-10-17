@@ -3209,7 +3209,7 @@ def print_shap_interaction_values(task, results, plots_path):
     # Return None -------------------------------------------------------------
     return fig
 
-def _print_shap_values(task, results, plots_path='./', title=None, exclude=[], rename_dict={}, dpi=600, stars=False):
+def ilm_shap_values_graph(task, results, plots_path='./', title=None, exclude=[], rename_dict={}, dpi=600, stars=False):
     '''
     Plot SHAP values.
     Parameters
@@ -3500,7 +3500,7 @@ def make_figures(results_dir = './',
             if def_shap_values:
                 print_shap_values(task, results, plots_path)
             else:
-                _print_shap_values(task, results, plots_path)
+                ilm_shap_values_graph(task, results, plots_path)
         
             # Plot SHAP dependencies ------------------------------------------
             print_shap_dependences(task, results, plots_path)
